@@ -1,11 +1,40 @@
+############################################################################
+### ESS 2020
+
+
+#clear environment
 rm(list=ls())
-library(haven)
+
+# load libraries
+library(car)
 library(psych)
+library(ggplot2)
+library(AER)
+library(estimatr)
+library(summarytools)
+library(dotwhisker)
+library(dplyr)
+library(lavaan)
+library(semPlot)
+library(semTools)
+library(hrbrthemes)
+library(survey)
+library(ggplot2)
+library(tidyverse)
+library(interactions)
 library(corrplot)
 library(Hmisc)
-ess8 <- read_dta(file="ess8.dta")
+library(dplyr)
+library(haven)
+library(poliscidata)
 
-#federico 0-1 recode
+# import data
+ess8 <- read_dta(file="ess8.dta")
+essraw <- read_dta(file="ess8.dta")
+ess8SSDF <- read_dta("ESS8SDDFe01_1.dta")
+essraw$pspwght
+ess8<-cbind(ess8, ess8SSDF)
+# federico 0-1 recode
 std01<-function(x){
   min.x<-min(x, na.rm=T)
   max.x<-max(x-min.x, na.rm=T)
@@ -92,10 +121,12 @@ ess8$rcv<-std01(rowMeans(with(ess8, cbind(rsec1, rsec2, rcon1, rcon2, rtrad1, rt
 
 
 ####################benefits received 0-1
-table(ess8$hincsrca)
-table(ess8$pubasst1)
-ess8$pubasst1<-ifelse(ess8$hincsrca==6|ess8$hincsrca==5,1,0)
+# 1 --> did not receive public assistance; 0 = did receive assistance.
 
+table(ess8$hincsrca)
+
+ess8$pubasst1<-ifelse(ess8$hincsrca==6|ess8$hincsrca==5,0,1)
+table(ess8$pubasst1)
 
 #######################economic preferences
 ess8$rec1<-ifelse(ess8$gincdif<6, (ess8$gincdif-1)/4, NA)
@@ -117,3 +148,73 @@ ess8$recsc1<-rowMeans(with(ess8, cbind(rec1, rec2, rec3, rec4)))
 ##check correlations for eco pref items
 ecopref<-cbind.data.frame(ess8$rec1, ess8$rec2,ess8$rec3,ess8$rec4)
 ecocorr<-rcorr(as.matrix(ecopref), type="pearson")
+
+## grm model (1)
+lm2a<-mirt(data=with(ess8, cbind(rec1,rec2,rec3,rec4)),
+           model = 1, itemtype="graded", verbose=FALSE)
+summary(lm2a)
+
+
+################################################################################
+######## regressions -- unweighted
+
+#### simple model
+m1<-lm(recsc1~rcv*pubasst1, data=ess8)
+
+## for model stats
+summary(m1)
+
+##for SEs and tests
+coeftest(m1, vcovHC(m1, type="HC3"))
+
+## conditional effects
+sim_slopes(m1, pred=rcv, modx=pubasst1, robust=T)
+
+#### simple model with covariates
+m2<-lm(recsc1~rcv*pubasst1+rinc01+rage+male+edr3+rmin+union, data=ess8)
+
+## for model stats
+summary(m2)
+
+##for SEs and tests
+coeftest(m2, vcovHC(m2, type="HC3"))
+
+## conditional effects
+sim_slopes(m2, pred=rcv, modx=pubasst1, robust=T)
+
+
+################################################################################
+######## weighting setup
+
+#### design object for svy analyses (pre/post):
+ess8
+sdata <-
+  svydesign(ids= ~psu,            
+            data = ess8, 
+            weights = ~pspwght,
+            Strata= ~stratum,
+            nest = TRUE
+  )
+length(ess8$idno)
+length(ess8$anweight)
+length(ess8$rcv)
+length(ess8$pubasst1)
+length(ess8$recsc1)
+################################################################################
+######## regressions -- weighted
+
+#### simple model
+wm1<-svyglm(recsc1~rcv*pubasst1, design=sdata)
+
+## for model stats
+summary(wm1)
+
+## get R2 with fit.svyglm from <poliscidata> package (ignore adjusted R2)
+fit.svyglm(wm1)
+
+## conditional effects
+sim_slopes(wm1, pred=rcv, modx=pubasst1)
+
+class(ess8$rcv)
+class(ess8$pubasst1)
+
