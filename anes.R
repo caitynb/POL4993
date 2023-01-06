@@ -57,25 +57,25 @@ anes20$rhet1<-ifelse(anes20$V201601==1, 1, ifelse(anes20$V201601>0, 0, NA))
 
 ## information.
 anes20$kn21<-ifelse(anes20$V202217==1 & anes20$V202218==2, 1, 
-                  ifelse(anes20$V202217==2 | anes20$V202218==1, 0, NA))
+                    ifelse(anes20$V202217==2 | anes20$V202218==1, 0, NA))
 anes20$kn22<-ifelse(anes20$V202138y>-1, anes20$V202138y, NA)
 anes20$kn23<-ifelse(anes20$V202139y1>-1, anes20$V202139y1, NA)
 anes20$kn24<-ifelse(anes20$V202140y1>-1, anes20$V202140y1, NA)
 anes20$kn25<-ifelse(anes20$V202141y1>-1, anes20$V202141y1, NA)
 anes20$kn26<-ifelse(anes20$V202142y2>-1, anes20$V202142y2, NA)
 anes20$kn27<-ifelse(anes20$V201644==6 & anes20$V201644>0, 1, 
-                  ifelse(anes20$V201644!=6 & anes20$V201644>0, 0, NA))   
+                    ifelse(anes20$V201644!=6 & anes20$V201644>0, 0, NA))   
 anes20$kn28<-ifelse(anes20$V201646==1 & anes20$V201646>0, 1, 
-                  ifelse(anes20$V201646!=1 & anes20$V201646>0, 0, NA)) 
+                    ifelse(anes20$V201646!=1 & anes20$V201646>0, 0, NA)) 
 anes20$kn29<-ifelse(anes20$V201647==2 & anes20$V201647>0, 1, 
-                  ifelse(anes20$V201647!=2 & anes20$V201647>0, 0, NA)) 
+                    ifelse(anes20$V201647!=2 & anes20$V201647>0, 0, NA)) 
 anes20$kn210<-ifelse(anes20$V201645==1 & anes20$V201645>0, 1, 
-                   ifelse(anes20$V201645!=1 & anes20$V201645>0, 0, NA)) 
+                     ifelse(anes20$V201645!=1 & anes20$V201645>0, 0, NA)) 
 psych::alpha(with(anes20, cbind(kn21, kn22, kn23, kn24, kn25,
-                              kn26, kn27, kn28, kn29, kn210)))
+                                kn26, kn27, kn28, kn29, kn210)))
 anes20$rknscal<-rowMeans(with(anes20, cbind(kn21, kn22, kn23, 
-                                         kn24, kn25, kn26, kn27, 
-                                        kn28, kn29, kn210)), na.rm=TRUE)
+                                            kn24, kn25, kn26, kn27, 
+                                            kn28, kn29, kn210)), na.rm=TRUE)
 
 ############making authoritarianism scale 
 ##anes20$V202266 is independence vs respect for elders
@@ -171,7 +171,7 @@ anes20$ec5<-ifelse(anes20$V202255x>0, 8-anes20$V202255x, NA)
 
 ## grm model (1)
 lm2a<-mirt(data = with(anes20, cbind(ec1, ec2, ec3, ec4)), 
-          model = 1, itemtype = "graded", verbose = FALSE)
+           model = 1, itemtype = "graded", verbose = FALSE)
 summary(lm2a)
 coef(lm2a)
 # latent trait scores
@@ -218,7 +218,7 @@ sim_slopes(m1, pred = rauth, modx = pubasst1, robust=T)
 
 #### with covariates
 m2<-lm(econ2 ~ rauth*pubasst1+age101+male1+rinc101+educ101+white1+black1+
-                latin1+rknscal, data=anes20)
+         latin1+rknscal, data=anes20)
 ## for model stats
 summary(m2)
 ## for SEs and tests:
@@ -228,9 +228,9 @@ sim_slopes(m2, pred = rauth, modx = pubasst1, robust=T)
 
 #### table
 t1<-huxreg(m1, m2, 
-            statistics = c("N" = "nobs", 
-                           "R squared" = "r.squared"),
-            number_format = 2)
+           statistics = c("N" = "nobs", 
+                          "R squared" = "r.squared"),
+           number_format = 2)
 quick_docx(t1, file='t1.docx')
 
 ################################################################################
@@ -259,17 +259,30 @@ wm1<-svyglm(econ2 ~ rauth*pubasst1, design=sdata)
 summary(wm1)
 ## get R2 with fit.svyglm from <poliscidata> package (ignore adjusted R2)
 fit.svyglm(wm1)
-## conditional effects
-sim_slopes(wm1, pred = rauth, modx = pubasst1)
+
+## conditional effects: use the following options...
+
+## <sim_margins> rather than <sim_slopes>:
+sim_margins(wm1, pred = rauth, modx = pubasst1)
+
+## with the <marginaleffects> package:
+library(marginaleffects)
+summary(marginaleffects(wm1, variables="rauth", by = "pubasst1"))
 
 #### with covariates
 wm2<-svyglm(econ2 ~ rauth*pubasst1+age101+male1+rinc101+educ101+white1+black1+
-                latin1+rknscal, design=sdata)
+              latin1+rknscal, design=sdata)
 summary(wm2)
 ## get R2 with fit.svyglm from <poliscidata> package (ignore adjusted R2)
 fit.svyglm(wm2)
-## conditional effects
-sim_slopes(wm2, pred = rauth, modx = pubasst1)
+
+## conditional effects:
+
+## <sim_margins> rather than <sim_slopes>:
+sim_margins(wm2, pred = rauth, modx = pubasst1)
+
+## with the <marginaleffects> package:
+summary(marginaleffects(wm2, variables="rauth", by = "pubasst1"))
 
 #### table
 t2<-huxreg(wm1, wm2, 
