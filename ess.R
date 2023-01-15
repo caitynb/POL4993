@@ -218,3 +218,17 @@ sim_slopes(wm1, pred=rcv, modx=pubasst1)
 class(ess8$rcv)
 class(ess8$pubasst1)
 
+sim_margins(wm1, pred = rcv, modx = pubasst1)
+
+#### with covariates
+
+wm2<-svyglm(recsc1~rcv*pubasst1+rinc01+rage+male+edr3+rmin+union, design=sdata)
+
+## for model stats
+summary(wm2)
+
+## get R2 with fit.svyglm from <poliscidata> package (ignore adjusted R2)
+fit.svyglm(wm2)
+
+## sim_margins instead of sim_slopes
+sim_margins(wm2, pred = rcv, modx = pubasst1)
