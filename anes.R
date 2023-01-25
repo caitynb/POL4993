@@ -24,6 +24,8 @@ library(tidyverse)
 library(interactions)
 library(mirt)
 library(huxtable)
+library(xtable)
+library(expss)
 
 #import csv
 anes20<-read.csv("anes_timeseries_2020_csv_20220210.csv")
@@ -115,16 +117,6 @@ anes20$auth<-(anes20$resp1+anes20$manners1+anes20$obed1+anes20$behave1)/4
 anes20$rauth<-rowMeans(with(anes20, cbind(resp1, manners1, obed1, behave1)))
 auth<-data.frame(with(anes20, cbind(resp1, manners1, obed1, behave1)))
 
-# authoritarianism IRT
-# model 
-lm1<-mirt(data = with(anes20, cbind(resp1, manners1, obed1, behave1)), 
-          model = 1, itemtype = "2PL", verbose = FALSE)
-summary(lm1)
-coef(lm1)
-# latent trait scores
-anes20$fsaut <- fscores(lm1, method='EAP')
-anes20$rfsaut <- std01(anes20$fsaut)
-
 ##variable anes20$auth is 0-1, 0 being fluid and 1 being fixed
 
 # making variable PUBASST 0-1
@@ -156,36 +148,9 @@ ineqredstr<-anes20$ineqredstr
 anes20$rgov1<-ifelse(anes20$V202255x>0, (6-anes20$V202255x)/5, NA)
 rgov1<-anes20$rgov1
 
-## econ composites
-anes20$econ1<-rowMeans(with(anes20, cbind(rserv1, rhel1, rjob1, ineqredstr)), na.rm=T)
-anes20$econ2<-rowMeans(with(anes20, cbind(rserv1, rhel1, rjob1, ineqredstr,
+## econ composite (RELABELED)
+anes20$econ1<-rowMeans(with(anes20, cbind(rserv1, rhel1, rjob1, ineqredstr,
                                           rgov1)), na.rm=T)
-
-#### IRT models for economics
-## original scales
-anes20$ec1<-ifelse(anes20$V201246>0 & anes20$V201246<8, 8-anes20$V201246, NA)
-anes20$ec2<-ifelse(anes20$V201252>0 & anes20$V201252<8, anes20$V201252, NA)
-anes20$ec3<-ifelse(anes20$V201255>0 & anes20$V201255<8, anes20$V201255, NA)
-anes20$ec4<-ifelse(anes20$V202259x>0, anes20$V202259x, NA)
-anes20$ec5<-ifelse(anes20$V202255x>0, 8-anes20$V202255x, NA)
-
-## grm model (1)
-lm2a<-mirt(data = with(anes20, cbind(ec1, ec2, ec3, ec4)), 
-           model = 1, itemtype = "graded", verbose = FALSE)
-summary(lm2a)
-coef(lm2a)
-# latent trait scores
-anes20$fsec1 <- fscores(lm2a, method='EAP')
-anes20$rfsec1 <- std01(anes20$fsec1)
-
-## grm model (2)
-lm2b<-mirt(data = with(anes20, cbind(ec1, ec2, ec3, ec4, ec5)), 
-           model = 1, itemtype = "graded", verbose = FALSE)
-summary(lm2b)
-coef(lm2b)
-# latent trait scores
-anes20$fsec2 <- fscores(lm2b, method='EAP')
-anes20$rfsec2 <- std01(anes20$fsec2)
 
 #### reliabilities -- I've provided some alternate code for getting alphas
 
@@ -193,45 +158,11 @@ anes20$rfsec2 <- std01(anes20$fsec2)
 psych::alpha(auth)
 psych::alpha(with(anes20, cbind(resp1, manners1, obed1, behave1)))
 
-## alpha: econ preferences 1
-psych::alpha(ecopref)
-psych::alpha(with(anes20, cbind(rserv1, rhel1, rjob1, ineqredstr)))
-
-## alpha: econ preferences 2 (with extra more vs less government in general item)
+## alpha: econ preferences (with extra more vs less government in general item)
 psych::alpha(with(anes20, cbind(rserv1, rhel1, rjob1, ineqredstr, rgov1)))
 
 ## save data in R format
 save(anes20, file="anes20.Rdata")
-
-
-################################################################################
-######## regressions -- unweighted
-
-#### simple model
-m1<-lm(econ2 ~ rauth*pubasst1, data=anes20)
-## for model stats:
-summary(m1)
-## for SEs and tests:
-coeftest(m1, vcovHC(m1, type = "HC3"))
-## conditional effects
-sim_slopes(m1, pred = rauth, modx = pubasst1, robust=T)
-
-#### with covariates
-m2<-lm(econ2 ~ rauth*pubasst1+age101+male1+rinc101+educ101+white1+black1+
-         latin1+rknscal, data=anes20)
-## for model stats
-summary(m2)
-## for SEs and tests:
-coeftest(m2, vcovHC(m2, type = "HC3"))
-## conditional effects
-sim_slopes(m2, pred = rauth, modx = pubasst1, robust=T)
-
-#### table
-t1<-huxreg(m1, m2, 
-           statistics = c("N" = "nobs", 
-                          "R squared" = "r.squared"),
-           number_format = 2)
-quick_docx(t1, file='t1.docx')
 
 ################################################################################
 ######## weighting setup
@@ -254,38 +185,114 @@ sdataw <- subset(sdata, white1==1)
 ################################################################################
 ######## regressions -- weighted
 
-#### simple model
-wm1<-svyglm(econ2 ~ rauth*pubasst1, design=sdata)
+###### main model
+wm1<-svyglm(econ1 ~ age101+male1+rinc101+educ101+white1+black1+
+              latin1+rknscal+rauth*pubasst1, design=sdata)
 summary(wm1)
 ## get R2 with fit.svyglm from <poliscidata> package (ignore adjusted R2)
 fit.svyglm(wm1)
 
-## conditional effects: use the following options...
-
-## <sim_margins> rather than <sim_slopes>:
+#### conditional effects:
 sim_margins(wm1, pred = rauth, modx = pubasst1)
 
-## with the <marginaleffects> package:
-library(marginaleffects)
-summary(marginaleffects(wm1, variables="rauth", by = "pubasst1"))
+#### plot, without auth x information interaction
+f1 <- interact_plot(wm1, pred = "rauth", 
+                    modx = "pubasst1", 
+                    interval = TRUE, 
+                    legend.main = "Receive Assistance?",
+                    modx.values = NULL, 
+                    modx.labels=c("Yes", "No"), 
+                    colors="CUD Bright") + 
+  scale_y_continuous(breaks=seq(0,1,0.2), limits=c(0,1)) + 
+  scale_x_continuous(breaks=seq(0,1,0.2), limits=c(0,1)) + 
+  theme_bw() + 
+  theme(aspect.ratio=1, 
+        plot.title = element_text(hjust = 0.5)) +
+  theme(legend.position="bottom")+
+  labs(title = "Social Spending, Authoritarianism, and Assistance Receipt\n(Without Information Interaction)",
+       x = "Authoritarianism (0-1)",
+       y = "Opposition for Social Spending (0-1)")
+ggsave(file="f1.png", f1, width = 10, height = 8)
 
-#### with covariates
-wm2<-svyglm(econ2 ~ rauth*pubasst1+age101+male1+rinc101+educ101+white1+black1+
-              latin1+rknscal, design=sdata)
+###### main model, with information interaction
+wm2<-svyglm(econ1 ~ age101+male1+rinc101+educ101+white1+black1+
+              latin1+rknscal+rauth*pubasst1+rauth*rknscal, design=sdata)
 summary(wm2)
 ## get R2 with fit.svyglm from <poliscidata> package (ignore adjusted R2)
 fit.svyglm(wm2)
 
-## conditional effects:
-
-## <sim_margins> rather than <sim_slopes>:
+#### conditional effects:
+## by public assistance receipt:
 sim_margins(wm2, pred = rauth, modx = pubasst1)
+## by political information:
+sim_margins(wm2, pred = rauth, modx = rknscal, 
+            modx.values = c(seq(0, 1, by=.2)))
 
-## with the <marginaleffects> package:
-summary(marginaleffects(wm2, variables="rauth", by = "pubasst1"))
+#### plot, with auth x information interaction
+f2 <- interact_plot(wm2, pred = "rauth", 
+                    modx = "pubasst1", 
+                    interval = TRUE, 
+                    legend.main = "Receive Assistance?",
+                    modx.values = NULL, 
+                    modx.labels=c("Yes", "No"), 
+                    colors="CUD Bright") + 
+  scale_y_continuous(breaks=seq(0,1,0.2), limits=c(0,1)) + 
+  scale_x_continuous(breaks=seq(0,1,0.2), limits=c(0,1)) + 
+  theme_bw() + 
+  theme(legend.position="bottom")+
+  theme(aspect.ratio=1, 
+        plot.title = element_text(hjust = 0.5)) +
+  labs(title = "Social Spending, Authoritarianism, and Assistance Receipt\n(With Information Interaction)",
+       x = "Authoritarianism (0-1)",
+       y = "Opposition for Social Spending (0-1)")
+ggsave(file="f2.png", f2, width = 10, height = 8)
 
-#### table
-t2<-huxreg(wm1, wm2, 
+#### plot of auth x information interaction
+f3 <- interact_plot(wm2, pred = "rauth", 
+                    modx = "rknscal", 
+                    interval = TRUE, 
+                    legend.main = "Political Information (0-1)",
+                    modx.values = c(seq(0, 1, by=.2)),
+                    colors="CUD Bright") + 
+  scale_y_continuous(breaks=seq(0,1,0.2), limits=c(0,1)) + 
+  scale_x_continuous(breaks=seq(0,1,0.2), limits=c(0,1)) + 
+  theme_bw() + 
+  theme(legend.position="bottom")+
+  theme(aspect.ratio=1, 
+        plot.title = element_text(hjust = 0.5)) +
+  labs(title = "Social Spending, Authoritarianism, and Information",
+       x = "Authoritarianism (0-1)",
+       y = "Opposition for Social Spending (0-1)")
+ggsave(file="f3.png", f3, width = 10, height = 8)
+
+#### table (you can manually add the R2)
+t1<-huxreg(wm1, wm2,
+           statistics = c("N" = "nobs"),
+           number_format = 2)
+quick_docx(t1, file='t1.docx')
+quick_latex(t1,file="t1.tex")
+################################################################################
+######## simple models -- for supplemental materials
+
+#### 1
+wm1s<-svyglm(econ1 ~ rauth*pubasst1+rknscal, design=sdata)
+summary(wm1s)
+fit.svyglm(wm1s)
+
+sim_margins(wm1s, pred = rauth, modx = pubasst1)
+
+#### 2
+wm2s<-svyglm(econ1 ~ rauth*pubasst1+rauth*rknscal, design=sdata)
+summary(wm2s)
+fit.svyglm(wm2s)
+
+sim_margins(wm2s, pred = rauth, modx = pubasst1)
+sim_margins(wm2s, pred = rauth, modx = rknscal, 
+            modx,values = c(seq(0, 1, by=.2)))
+wm1<-var_lab(wm1,"Without knowledge")
+#### supplemental table
+t2<-huxreg(wm1s,wm2s,
            statistics = c("N" = "nobs"),
            number_format = 2)
 quick_docx(t2, file='t2.docx')
+
