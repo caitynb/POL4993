@@ -169,7 +169,8 @@ table(anes20$rattpol)
 
 anes20$rattcamp<-anes20$V201006
 anes20$rattcamp<-ifelse(anes20$V201006>0 & anes20$V201006<4,((3-anes20$V201006)/2),NA)
-table(anes20$rattcamp)
+
+anes20$rint<-rowMeans(with(anes20,cbind(rattpol,rattcamp)),na.rm=T)
 
 ##engagement composite
 anes20$eng1<-rowMeans(with(anes20,cbind(rattpol,rattcamp,kn21, kn22, kn23, 
@@ -271,7 +272,7 @@ f2 <- interact_plot(wm2, pred = "rauth",
 ggsave(file="f2.png", f2, width = 10, height = 8)
 
 #### plot of auth x information interaction
-f3 <- interact_plot(wm2, pred = "rauth", 
+f3 <- interact_plot(wm3, pred = "rauth", 
                     modx = "rknscal", 
                     interval = TRUE, 
                     legend.main = "Political Information (0-1)",
@@ -298,20 +299,19 @@ quick_latex(t1,file="t1.tex")
 
 
 #########################
-## main model test with engagement
+## main model test with interest
 wm3<-svyglm(econ1 ~ age101+male1+rinc101+educ101+white1+black1+
-              latin1+rknscal+rauth*pubasst1+rauth*eng1, design=sdata)
+              latin1+rknscal+rauth*pubasst1+rauth*rknscal+rint, design=sdata)
 summary(wm3)
 ## get R2 with fit.svyglm from <poliscidata> package (ignore adjusted R2)
 fit.svyglm(wm3)
 
-sim_margins(wm3, pred = rauth, modx = eng1,
+sim_margins(wm3, pred = rauth, modx = rknscal,
             modx.values = c(seq(0, 1, by=.2)))
 
 
-
 f4 <- interact_plot(wm3, pred = "rauth", 
-                    modx = "eng1", 
+                    modx = "rknscal", 
                     interval = TRUE, 
                     legend.main = "Political Engagement (0-1)",
                     modx.values = c(seq(0, 1, by=.2)),
@@ -328,6 +328,30 @@ f4 <- interact_plot(wm3, pred = "rauth",
 ggsave(file="f4.png", f4, width = 10, height = 8)
 f4
 
+
+########################
+### main model test with engagement
+wm4<-svyglm(econ1 ~ age101+male1+rinc101+educ101+white1+black1+
+              latin1+rknscal+rauth*pubasst1+rauth*eng1, design=sdata)
+summary(wm4)
+
+f5 <- interact_plot(wm4, pred = "rauth", 
+                    modx = "eng1", 
+                    interval = TRUE, 
+                    legend.main = "Political Engagement (0-1)",
+                    modx.values = c(seq(0, 1, by=.2)),
+                    colors="CUD Bright") + 
+  scale_y_continuous(breaks=seq(0,1,0.2), limits=c(0,1)) + 
+  scale_x_continuous(breaks=seq(0,1,0.2), limits=c(0,1)) + 
+  theme_bw() + 
+  theme(legend.position="bottom")+
+  theme(aspect.ratio=1, 
+        plot.title = element_text(hjust = 0.5)) +
+  labs(title = "Social Spending, Authoritarianism, and Engagement",
+       x = "Authoritarianism (0-1)",
+       y = "Opposition for Social Spending (0-1)")
+ggsave(file="f5.png", f5, width = 10, height = 8)
+f5
 ################################################################################
 ######## simple models -- for supplemental materials
 
