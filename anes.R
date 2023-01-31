@@ -161,6 +161,29 @@ psych::alpha(with(anes20, cbind(resp1, manners1, obed1, behave1)))
 ## alpha: econ preferences (with extra more vs less government in general item)
 psych::alpha(with(anes20, cbind(rserv1, rhel1, rjob1, ineqredstr, rgov1)))
 
+#####engagement scale
+##participant attention to politics
+anes20$rattpol<-anes20$V201005
+anes20$rattpol<-ifelse(anes20$V201005>0 & anes20$V201005<6,((5-anes20$V201005)/4),NA)
+## participant attention to campaigns
+anes20$rattcamp<-anes20$V201006
+anes20$rattcamp<-ifelse(anes20$V201006>0 & anes20$V201006<4,((3-anes20$V201006)/2),NA)
+
+## variable for interest
+anes20$rint<-rowMeans(with(anes20,cbind(rattpol,rattcamp)),na.rm=T)
+
+## engagement composite
+anes20$eng1<-rowMeans(with(anes20,cbind(rattpol,rattcamp,kn21, kn22, kn23, 
+                                        kn24, kn25, kn26, kn27, 
+                                        kn28, kn29, kn210)),na.rm=T)
+
+## alpha: interest & knowledge scale
+psych::alpha(with(anes20, cbind(rattpol,rattcamp,kn21, kn22, kn23, 
+                                kn24, kn25, kn26, kn27, 
+                                kn28, kn29, kn210)))
+
+
+
 ## save data in R format
 save(anes20, file="anes20.Rdata")
 
@@ -196,7 +219,7 @@ fit.svyglm(wm1)
 sim_margins(wm1, pred = rauth, modx = pubasst1)
 
 #### plot, without auth x information interaction
-f1 <- interact_plot(wm1, pred = "rauth", 
+fig_authpub <- interact_plot(wm1, pred = "rauth", 
                     modx = "pubasst1", 
                     interval = TRUE, 
                     legend.main = "Receive Assistance?",
@@ -209,49 +232,44 @@ f1 <- interact_plot(wm1, pred = "rauth",
   theme(aspect.ratio=1, 
         plot.title = element_text(hjust = 0.5)) +
   theme(legend.position="bottom")+
-  labs(title = "Social Spending, Authoritarianism, and Assistance Receipt\n(Without Information Interaction)",
+  labs(title = "Social Spending, Authoritarianism, and Assistance Receipt\n(Without Engagement Interaction)",
        x = "Authoritarianism (0-1)",
        y = "Opposition for Social Spending (0-1)")
-ggsave(file="f1.png", f1, width = 10, height = 8)
+ggsave(file="fig_authpub.png", fig_authpub, width = 10, height = 8)
 
-###### main model, with information interaction
+## main model test with interest
 wm2<-svyglm(econ1 ~ age101+male1+rinc101+educ101+white1+black1+
-              latin1+rknscal+rauth*pubasst1+rauth*rknscal, design=sdata)
+              latin1+eng1+rauth*pubasst1+rauth*eng1, design=sdata)
 summary(wm2)
 ## get R2 with fit.svyglm from <poliscidata> package (ignore adjusted R2)
 fit.svyglm(wm2)
 
-#### conditional effects:
-## by public assistance receipt:
-sim_margins(wm2, pred = rauth, modx = pubasst1)
-## by political information:
-sim_margins(wm2, pred = rauth, modx = rknscal, 
+sim_margins(wm2, pred = rauth, modx = rknscal,
             modx.values = c(seq(0, 1, by=.2)))
 
-#### plot, with auth x information interaction
-f2 <- interact_plot(wm2, pred = "rauth", 
-                    modx = "pubasst1", 
-                    interval = TRUE, 
-                    legend.main = "Receive Assistance?",
-                    modx.values = NULL, 
-                    modx.labels=c("Yes", "No"), 
-                    colors="CUD Bright") + 
+fig_authpubeng <- interact_plot(wm2, pred = "rauth", 
+                             modx = "pubasst1", 
+                             interval = TRUE, 
+                             legend.main = "Receive Assistance?",
+                             modx.values = NULL,
+                             modx.labels=c("Yes", "No"),
+                             colors="CUD Bright") + 
   scale_y_continuous(breaks=seq(0,1,0.2), limits=c(0,1)) + 
   scale_x_continuous(breaks=seq(0,1,0.2), limits=c(0,1)) + 
   theme_bw() + 
   theme(legend.position="bottom")+
   theme(aspect.ratio=1, 
         plot.title = element_text(hjust = 0.5)) +
-  labs(title = "Social Spending, Authoritarianism, and Assistance Receipt\n(With Information Interaction)",
+  labs(title = "Social Spending, Authoritarianism, and Assistance Receipt\n(With Engagement Interaction)",
        x = "Authoritarianism (0-1)",
        y = "Opposition for Social Spending (0-1)")
-ggsave(file="f2.png", f2, width = 10, height = 8)
+ggsave(file="fig_authpubeng.png", fig_authpubeng, width = 10, height = 8)
+fig_authpubeng
 
-#### plot of auth x information interaction
-f3 <- interact_plot(wm2, pred = "rauth", 
-                    modx = "rknscal", 
+fig_autheng <- interact_plot(wm2, pred = "rauth", 
+                    modx = "eng1", 
                     interval = TRUE, 
-                    legend.main = "Political Information (0-1)",
+                    legend.main = "Political Engagement (0-1)",
                     modx.values = c(seq(0, 1, by=.2)),
                     colors="CUD Bright") + 
   scale_y_continuous(breaks=seq(0,1,0.2), limits=c(0,1)) + 
@@ -260,29 +278,33 @@ f3 <- interact_plot(wm2, pred = "rauth",
   theme(legend.position="bottom")+
   theme(aspect.ratio=1, 
         plot.title = element_text(hjust = 0.5)) +
-  labs(title = "Social Spending, Authoritarianism, and Information",
+  labs(title = "Social Spending, Authoritarianism, and Engagement",
        x = "Authoritarianism (0-1)",
        y = "Opposition for Social Spending (0-1)")
-ggsave(file="f3.png", f3, width = 10, height = 8)
+ggsave(file="fig_autheng.png", fig_autheng, width = 10, height = 8)
+fig_autheng
 
 #### table (you can manually add the R2)
 t1<-huxreg(wm1, wm2,
            statistics = c("N" = "nobs"),
            number_format = 2)
 quick_docx(t1, file='t1.docx')
-quick_latex(t1,file="t1.tex")
+
+
+
+#########################
 ################################################################################
 ######## simple models -- for supplemental materials
 
 #### 1
-wm1s<-svyglm(econ1 ~ rauth*pubasst1+rknscal, design=sdata)
+wm1s<-svyglm(econ1 ~ rauth*pubasst1+eng1, design=sdata)
 summary(wm1s)
 fit.svyglm(wm1s)
 
 sim_margins(wm1s, pred = rauth, modx = pubasst1)
 
 #### 2
-wm2s<-svyglm(econ1 ~ rauth*pubasst1+rauth*rknscal, design=sdata)
+wm2s<-svyglm(econ1 ~ rauth*pubasst1+rauth*eng1, design=sdata)
 summary(wm2s)
 fit.svyglm(wm2s)
 
@@ -295,4 +317,3 @@ t2<-huxreg(wm1s,wm2s,
            statistics = c("N" = "nobs"),
            number_format = 2)
 quick_docx(t2, file='t2.docx')
-
