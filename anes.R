@@ -117,15 +117,21 @@ anes20$auth<-(anes20$resp1+anes20$manners1+anes20$obed1+anes20$behave1)/4
 anes20$rauth<-rowMeans(with(anes20, cbind(resp1, manners1, obed1, behave1)))
 auth<-data.frame(with(anes20, cbind(resp1, manners1, obed1, behave1)))
 
+####descriptive statistics for authoritarian items
+descr(anes20$auth, stats="common",transpose=T)
+
+
+
 ##variable anes20$auth is 0-1, 0 being fluid and 1 being fixed
 
 # making variable PUBASST 0-1
 # 1 --> did not receive public assistance; 0 = did receive assistance.
 anes20$pubasst<-anes20$V202563
-table(anes20$pubasst)
 anes20$pubasst[anes20$pubasst<1]<-NA
 anes20$pubasst1<-as.factor(ifelse(anes20$pubasst==1, 0, 1))
-table(anes20$pubasst1)
+
+
+freq(anes20$pubasst1)
 
 #eco pref; high = right wing
 ## services and spending
@@ -152,6 +158,12 @@ rgov1<-anes20$rgov1
 anes20$econ1<-rowMeans(with(anes20, cbind(rserv1, rhel1, rjob1, ineqredstr,
                                           rgov1)), na.rm=T)
 
+###### descriptive statistics for econ composite
+descr(anes20$econ1, stats="common",transpose=T)
+
+
+
+
 #### reliabilities -- I've provided some alternate code for getting alphas
 
 ## alpha: authoritarianism
@@ -176,6 +188,10 @@ anes20$rint<-rowMeans(with(anes20,cbind(rattpol,rattcamp)),na.rm=T)
 anes20$eng1<-rowMeans(with(anes20,cbind(rattpol,rattcamp,kn21, kn22, kn23, 
                                         kn24, kn25, kn26, kn27, 
                                         kn28, kn29, kn210)),na.rm=T)
+
+
+###### descriptive statistics for engagement composite
+descr(anes20$eng1, stats="common",transpose=T)
 
 ## alpha: interest & knowledge scale
 psych::alpha(with(anes20, cbind(rattpol,rattcamp,kn21, kn22, kn23, 
@@ -210,7 +226,7 @@ sdataw <- subset(sdata, white1==1)
 
 ###### main model
 wm1<-svyglm(econ1 ~ age101+male1+rinc101+educ101+white1+black1+
-              latin1+rknscal+rauth*pubasst1, design=sdata)
+              latin1+eng1+rauth*pubasst1, design=sdata)
 summary(wm1)
 ## get R2 with fit.svyglm from <poliscidata> package (ignore adjusted R2)
 fit.svyglm(wm1)
@@ -237,7 +253,7 @@ fig_authpub <- interact_plot(wm1, pred = "rauth",
        y = "Opposition for Social Spending (0-1)")
 ggsave(file="fig_authpub.png", fig_authpub, width = 10, height = 8)
 
-## main model test with interest
+## main model test with engagement interaction
 wm2<-svyglm(econ1 ~ age101+male1+rinc101+educ101+white1+black1+
               latin1+eng1+rauth*pubasst1+rauth*eng1, design=sdata)
 summary(wm2)
@@ -285,6 +301,8 @@ ggsave(file="fig_autheng.png", fig_autheng, width = 10, height = 8)
 fig_autheng
 
 #### table (you can manually add the R2)
+library(sjPlot)
+
 t1<-huxreg(wm1, wm2,
            statistics = c("N" = "nobs"),
            number_format = 2)
@@ -317,3 +335,4 @@ t2<-huxreg(wm1s,wm2s,
            statistics = c("N" = "nobs"),
            number_format = 2)
 quick_docx(t2, file='t2.docx')
+
